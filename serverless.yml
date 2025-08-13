@@ -1,0 +1,184 @@
+service: laravel-bref-websocket
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: provided.al2
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  profile: ccox-mfa
+  environment:
+    APP_ENV: ${self:provider.stage}
+    APP_DEBUG: false
+    LOG_CHANNEL: stderr
+    CACHE_DRIVER: array
+    SESSION_DRIVER: array
+    QUEUE_CONNECTION: sync
+
+plugins:
+  - ./vendor/bref/bref
+
+custom:
+  bref:
+    handler: public/index.php
+    layers:
+      - arn:aws:lambda:us-east-1:209497400698:layer:php-81:1
+
+functions:
+  websocket:
+    handler: app/WebSocket/WebSocketHandler@handle
+    events:
+      - websocket:
+          route: $connect
+      - websocket:
+          route: $disconnect
+      - websocket:
+          route: $default
+    environment:
+      STAGE: ${self:provider.stage}
+      WEBSOCKET_API_GATEWAY_ENDPOINT: ${self:custom.websocketEndpoint}
+
+  api:
+    handler: public/index.php
+    events:
+      - http:
+          path: /
+          method: ANY
+      - http:
+          path: /{proxy+}
+          method: ANY
+
+resources:
+  Resources:
+    WebSocketApi:
+      Type: AWS::ApiGatewayV2::Api
+      Properties:
+        Name: ${self:service}-${self:provider.stage}
+        ProtocolType: WEBSOCKET
+        RouteSelectionExpression: $request.body.action
+
+    WebSocketStage:
+      Type: AWS::ApiGatewayV2::Stage
+      Properties:
+        ApiId: !Ref WebSocketApi
+        StageName: ${self:provider.stage}
+        AutoDeploy: true
+
+    ConnectRoute:
+      Type: AWS::ApiGatewayV2::Route
+      Properties:
+        ApiId: !Ref WebSocketApi
+        RouteKey: $connect
+        AuthorizationType: NONE
+        OperationName: ConnectRoute
+        Target: !Join
+          - '/'
+          - - 'integrations'
+            - !Ref ConnectIntegration
+
+    DisconnectRoute:
+      Type: AWS::ApiGatewayV2::Route
+      Properties:
+        ApiId: !Ref WebSocketApi
+        RouteKey: $disconnect
+        AuthorizationType: NONE
+        OperationName: DisconnectRoute
+        Target: !Join
+          - '/'
+          - - 'integrations'
+            - !Ref DisconnectIntegration
+
+    DefaultRoute:
+      Type: AWS::ApiGatewayV2::Route
+      Properties:
+        ApiId: !Ref WebSocketApi
+        RouteKey: $default
+        AuthorizationType: NONE
+        OperationName: DefaultRoute
+        Target: !Join
+          - '/'
+          - - 'integrations'
+            - !Ref DefaultIntegration
+
+    ConnectIntegration:
+      Type: AWS::ApiGatewayV2::Integration
+      Properties:
+        ApiId: !Ref WebSocketApi
+        IntegrationType: AWS_PROXY
+        IntegrationUri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${function}/invocations
+          - function: !GetAtt WebSocketLambdaFunction.Arn
+
+    DisconnectIntegration:
+      Type: AWS::ApiGatewayV2::Integration
+      Properties:
+        ApiId: !Ref WebSocketApi
+        IntegrationType: AWS_PROXY
+        IntegrationUri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${function}/invocations
+          - function: !GetAtt WebSocketLambdaFunction.Arn
+
+    DefaultIntegration:
+      Type: AWS::ApiGatewayV2::Integration
+      Properties:
+        ApiId: !Ref WebSocketApi
+        IntegrationType: AWS_PROXY
+        IntegrationUri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${function}/invocations
+          - function: !GetAtt WebSocketLambdaFunction.Arn
+
+    WebSocketLambdaFunction:
+      Type: AWS::Lambda::Function
+      Properties:
+        FunctionName: ${self:service}-websocket-${self:provider.stage}
+        Runtime: provided.al2
+        Handler: app/WebSocket/WebSocketHandler@handle
+        Code:
+          ZipFile: |
+            def handler(event, context):
+                return {"statusCode": 200, "body": "WebSocket handler"}
+        Role: !GetAtt LambdaExecutionRole.Arn
+        Environment:
+          Variables:
+            STAGE: ${self:provider.stage}
+
+    LambdaExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        Policies:
+          - PolicyName: WebSocketPolicy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - execute-api:ManageConnections
+                  Resource: !Sub
+                    - arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${api}/*
+                    - api: !Ref WebSocketApi
+
+Outputs:
+  WebSocketEndpoint:
+    Description: WebSocket API Gateway endpoint URL
+    Value: !Sub
+      - wss://${api}.execute-api.${AWS::Region}.amazonaws.com/${stage}
+      - api: !Ref WebSocketApi
+        stage: ${self:provider.stage}
+    Export:
+      Name: ${self:service}-websocket-endpoint-${self:provider.stage}
+
+  WebSocketApiId:
+    Description: WebSocket API Gateway ID
+    Value: !Ref WebSocketApi
+    Export:
+      Name: ${self:service}-websocket-api-id-${self:provider.stage}
