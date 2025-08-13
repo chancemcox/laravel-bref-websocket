@@ -43,7 +43,7 @@ class WebSocketManagerTest extends TestCase
 
         $resultJoin = $manager->joinChannel($connectionId, 'news');
         $this->assertTrue($resultJoin);
-        $this->assertSame(['news'], Cache::get("websocket:channels:news"));
+        $this->assertSame([$connectionId], Cache::get("websocket:channels:news"));
         $this->assertSame(['news'], $manager->getChannelsByConnection($connectionId));
         Event::assertDispatched('websocket.channel.joined');
 
