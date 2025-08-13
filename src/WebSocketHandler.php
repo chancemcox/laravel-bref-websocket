@@ -34,15 +34,23 @@ class WebSocketHandler
      */
     public function __construct()
     {
-        $this->apiGatewayClient = new ApiGatewayManagementApiClient([
+        $options = [
             'version' => 'latest',
             'region' => config('websocket.aws_region', 'us-east-1'),
             'endpoint' => config('websocket.api_gateway_endpoint'),
-            'credentials' => [
-                'key' => config('aws.credentials.key'),
-                'secret' => config('aws.credentials.secret'),
-            ],
-        ]);
+        ];
+
+        $websocketCredentials = config('websocket.credentials');
+        if (is_array($websocketCredentials)
+            && !empty($websocketCredentials['key'])
+            && !empty($websocketCredentials['secret'])) {
+            $options['credentials'] = [
+                'key' => $websocketCredentials['key'],
+                'secret' => $websocketCredentials['secret'],
+            ];
+        }
+
+        $this->apiGatewayClient = new ApiGatewayManagementApiClient($options);
     }
 
     /**
@@ -238,7 +246,7 @@ class WebSocketHandler
     /**
      * Remove a connection by ID.
      */
-    protected function removeConnectionById(string $connectionId): void
+    public function removeConnectionById(string $connectionId): void
     {
         // Remove from cache
         cache()->forget("websocket:connection:{$connectionId}");
