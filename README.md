@@ -289,3 +289,14 @@ PRs are welcome! Please include tests where practical.
 ## License
 
 MIT
+
+## Testing
+
+Install dependencies and run tests:
+
+```bash
+composer install
+./vendor/bin/phpunit
+```
+
+This package uses Orchestra Testbench and Laravel's array cache driver for isolated tests.

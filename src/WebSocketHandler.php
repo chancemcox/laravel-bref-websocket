@@ -246,7 +246,7 @@ class WebSocketHandler
     /**
      * Remove a connection by ID.
      */
-    protected function removeConnectionById(string $connectionId): void
+    public function removeConnectionById(string $connectionId): void
     {
         // Remove from cache
         cache()->forget("websocket:connection:{$connectionId}");
