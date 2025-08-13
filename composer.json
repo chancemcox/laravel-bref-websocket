@@ -1,0 +1,58 @@
+{
+    "name": "laravel-bref/websocket",
+    "description": "Laravel WebSocket support for AWS API Gateway WebSockets using Bref serverless framework",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "websocket",
+        "bref",
+        "aws",
+        "serverless",
+        "api-gateway",
+        "notifications",
+        "real-time"
+    ],
+    "authors": [
+        {
+            "name": "Your Name",
+            "email": "your.email@example.com"
+        }
+    ],
+    "require": {
+        "php": "^8.0",
+        "laravel/framework": "^9.0|^10.0|^11.0",
+        "bref/bref": "^2.0",
+        "aws/aws-sdk-php": "^3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0|^10.0",
+        "orchestra/testbench": "^7.0|^8.0",
+        "mockery/mockery": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "LaravelBref\\WebSocket\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "LaravelBref\\WebSocket\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "LaravelBref\\WebSocket\\WebSocketServiceProvider"
+            ],
+            "aliases": {
+                "WebSocket": "LaravelBref\\WebSocket\\Facades\\WebSocket"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
